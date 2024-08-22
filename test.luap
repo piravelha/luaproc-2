@@ -1,3 +1,2 @@
-i = i or 0
-i = i + 1
 
+print("Hi from test.luap!")

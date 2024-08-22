@@ -144,9 +144,7 @@ fn parse_func_arg(
         }
         if denesters.contains(&token.value.as_str()) {
             nesting_level -= 1;
-            if nesting_level <= 0 {
-                arg_tokens.push(token.clone());
-                iter.next();
+            if nesting_level < 0 {
                 return Some(arg_tokens);
             }
         }
@@ -377,7 +375,8 @@ fn process_file(path: String) -> Result<lexer::Tokens, String> {
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    let input_path = args.get(1).expect("Usage: luaproc <filename>");
+    let input_path = args.get(1).expect("Usage: luaproc <input-file> <output-file>");
+    let output_path = args.get(2).expect("Usage: luaproc <input-file> <output-file>");
     let processed = match process_file(input_path.to_string()) {
         Err(e) => {
             eprintln!("{}", e);
@@ -388,13 +387,13 @@ fn main() {
     let processed = process_tokens(processed, &mut vec![], &mut vec![]).expect("Processing failed");
     let processed = apply_pastes(processed);
     let string = render_tokens(processed);
-    let mut output_file = File::create("out.lua").expect("Could not create file");
+    let mut output_file = File::create(output_path).expect("Could not create file");
     match output_file.write_all(string.as_bytes()) {
         Err(e) => eprintln!("Error: {}", e),
         Ok(_) => {},
     };
     let _ = Command::new("stylua")
-        .arg("out.lua")
+        .arg(output_path)
         .output();
 }
 

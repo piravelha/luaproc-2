@@ -1,7 +1,4 @@
-print(i)
-#include "test.luap"
-#include "test.luap"
-#include "test.luap"
-#include "test.luap"
+#define a!(b, c) = #b# .. ", " .. #c# .. "!" #end
 
+print(a!(Hello, World))
 
