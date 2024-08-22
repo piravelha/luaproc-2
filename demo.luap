@@ -1,0 +1,6 @@
+
+#define math!(x) =
+    (x + x) / (x - x)
+#end
+
+print(math!(10))
