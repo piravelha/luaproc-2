@@ -11,10 +11,12 @@ pub enum TokenKind {
     Delimiter,
     Brace,
     Macro,
+    Include,
     Define,
     EndDefine,
     Undef,
     Stringify,
+    Paste,
 }
 
 #[derive(Debug, Clone)]
@@ -44,6 +46,9 @@ fn get_lex_patterns() -> Patterns {
         new_pattern(r"([a-zA-Z_]\w*!)"),
         TokenKind::Macro,
     ), (
+        new_pattern(r"(#include)"),
+        TokenKind::Include,
+    ), (
         new_pattern(r"(#define)"),
         TokenKind::Define,
     ), (
@@ -58,6 +63,9 @@ fn get_lex_patterns() -> Patterns {
     ), (
         new_pattern(r"(#[a-zA-Z_]\w*#)"),
         TokenKind::Stringify,
+    ), (
+        new_pattern(r"##"),
+        TokenKind::Paste,
     ), (
         new_pattern(r"([a-zA-Z_]\w*)"),
         TokenKind::Name,

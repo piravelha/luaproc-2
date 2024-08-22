@@ -136,18 +136,21 @@ fn parse_func_arg(
     let nesters = vec!["(", "[", "{"];
     let denesters = vec![")", "]", "}"];
     while let Some(token) = iter.clone().peek() {
-        if nesting_level == 0 && token.kind == lexer::TokenKind::Delimiter {
+        if nesting_level <= 0 && token.kind == lexer::TokenKind::Delimiter {
             return Some(arg_tokens);
         }
-        iter.next()?;
         if nesters.contains(&token.value.as_str()) {
             nesting_level += 1;
         }
         if denesters.contains(&token.value.as_str()) {
-            if nesting_level == 0 {
+            nesting_level -= 1;
+            if nesting_level <= 0 {
+                arg_tokens.push(token.clone());
+                iter.next();
                 return Some(arg_tokens);
             }
         }
+        iter.next()?;
         arg_tokens.push(token.clone());
     }
     None
@@ -162,6 +165,7 @@ fn parse_func_args(
     let mut args = vec![];
     while let Some(token) = iter.clone().peek() {
         if token.value.as_str() == ")" {
+            iter.next();
             break
         }
         if token.kind == lexer::TokenKind::Delimiter {
@@ -173,10 +177,12 @@ fn parse_func_args(
     Some(args)
 }
 
-fn process_tokens(tokens: lexer::Tokens) -> Result<lexer::Tokens, String> {
+fn process_tokens(
+    tokens: lexer::Tokens,
+    value_macros: &mut Vec<ValueMacro>,
+    func_macros: &mut Vec<FuncMacro>,
+) -> Result<lexer::Tokens, String> {
     let mut new_tokens = vec![];
-    let mut value_macros = vec![];
-    let mut func_macros = vec![];
     let mut iter = tokens.into_iter().peekable();
 
     while let Some(token) = iter.next() {
@@ -186,8 +192,8 @@ fn process_tokens(tokens: lexer::Tokens) -> Result<lexer::Tokens, String> {
             ).ok_or("Expected macro name".to_string())?;
             let eq_or_lparen = iter.next().ok_or("Expected '=' or '(' on macro declaration".to_string())?   ;
             match eq_or_lparen.value.as_str() {
-                "=" => process_value_macro(&mut iter, &mut value_macros, name).ok_or("Failed parsing value macro".to_string())?,
-                "(" => process_func_macro(&mut iter, &mut func_macros, name).ok_or("Failed to parse func macro".to_string())?,
+                "=" => process_value_macro(&mut iter, value_macros, name).ok_or("Failed parsing value macro".to_string())?,
+                "(" => process_func_macro(&mut iter, func_macros, name).ok_or("Failed to parse func macro".to_string())?,
                 _ => return Err("Syntax error on macro declaration, expected '=' or '('".to_string()),
             }
         } else if token.kind == lexer::TokenKind::Macro {
@@ -195,7 +201,8 @@ fn process_tokens(tokens: lexer::Tokens) -> Result<lexer::Tokens, String> {
                 val_macro.name == token.value
             );
             if let Some(value_macro) = value_macro_opt {
-                new_tokens.extend(value_macro.tokens);
+                let result = process_tokens(value_macro.tokens, value_macros, func_macros)?;
+                new_tokens.extend(result);
                 continue;
             }
             let func_macro_opt = func_macros.clone().into_iter().find(|func_macro|
@@ -212,10 +219,11 @@ fn process_tokens(tokens: lexer::Tokens) -> Result<lexer::Tokens, String> {
                 for (arg, param) in args.into_iter().zip(&params) {
                     body = replace_tokens(body, param.clone(), arg);
                 }
-                new_tokens.extend(body);
+                let result = process_tokens(body, value_macros, func_macros)?;
+                new_tokens.extend(result);
                 continue;
             }
-            return Err("Attempting to call non-existant macro".to_string())
+            return Err("Attempting to call non-existent macro".to_string())
         } else if token.kind == lexer::TokenKind::Undef {
             let name = iter.next().filter(|tok|
                 tok.kind == lexer::TokenKind::Macro
@@ -226,12 +234,56 @@ fn process_tokens(tokens: lexer::Tokens) -> Result<lexer::Tokens, String> {
             func_macros.retain(|func_macro|
                 func_macro.name != name.value
             );
+        } else if token.kind == lexer::TokenKind::Include {
+            let path = iter.next().filter(|tok|
+                tok.kind == lexer::TokenKind::String
+            ).ok_or("Include must be followed by a string literal")?;
+            let result = process_file((&path.value[1..path.value.len()-1]).to_string())?;
+            let processed = process_tokens(result, value_macros, func_macros)?;
+            new_tokens.extend(processed);
         } else {
             new_tokens.push(token.clone());
         }
     }
 
     Ok(new_tokens)
+}
+
+fn apply_pastes_rest(
+    iter: &mut Peekable<IntoIter<lexer::Token>>,
+    parts: &mut Vec<String>,
+) {
+    while let Some(next_token) = iter.peek() {
+        if next_token.kind == lexer::TokenKind::Paste {
+            iter.next();
+            if let Some(name_token) = iter.next() {
+                if name_token.kind == lexer::TokenKind::Name {
+                    parts.push(name_token.value);
+                    continue 
+                }
+            }
+        }
+        break;
+    }
+}
+
+fn apply_pastes(tokens: lexer::Tokens) -> lexer::Tokens {
+    let mut iter = tokens.into_iter().peekable();
+    let mut new_tokens = vec![];
+    while let Some(token) = iter.next() {
+        if token.kind == lexer::TokenKind::Name {
+            let mut parts = vec![token.value.clone()];
+            apply_pastes_rest(&mut iter, &mut parts);
+            let string = parts.join("");
+            new_tokens.push(lexer::Token {
+                kind: lexer::TokenKind::Name,
+                value: string,
+            });
+        } else {
+            new_tokens.push(token.clone());
+        }
+    }
+    new_tokens
 }
 
 fn render_tokens(tokens: lexer::Tokens) -> String {
@@ -241,17 +293,26 @@ fn render_tokens(tokens: lexer::Tokens) -> String {
         .join(" ")
 }
 
+fn process_file(path: String) -> Result<lexer::Tokens, String> {
+    let mut input_file = File::open(path).map_err(|e| format!("{}", e))?;
+    let mut input = String::new();
+    input_file.read_to_string(&mut input).map_err(|e| format!("{}", e))?;
+    let tokens = lexer::lex(input).ok_or("Tokenization failed")?;
+    Ok(tokens)
+}
+
 fn main() {
     let args: Vec<String> = env::args().collect();
     let input_path = args.get(1).expect("Usage: luaproc <filename>");
-    let mut input_file = File::open(input_path).expect("Could not open file");
-    let mut input = String::new();
-    match input_file.read_to_string(&mut input) {
-        Err(e) => eprintln!("Error: {}", e),
-        Ok(_) => {},
+    let processed = match process_file(input_path.to_string()) {
+        Err(e) => {
+            eprintln!("{}", e);
+            return;
+        },
+        Ok(p) => p,
     };
-    let tokens = lexer::lex(input).expect("Tokenization failed");
-    let processed = process_tokens(tokens).expect("Processing failed");
+    let processed = process_tokens(processed, &mut vec![], &mut vec![]).expect("Processing failed");
+    let processed = apply_pastes(processed);
     let string = render_tokens(processed);
     let mut output_file = File::create("out.lua").expect("Could not create file");
     match output_file.write_all(string.as_bytes()) {

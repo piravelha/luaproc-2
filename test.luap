@@ -1,0 +1,2 @@
+
+#define external_macro! = "no way" #end

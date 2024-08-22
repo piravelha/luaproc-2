@@ -1,10 +1,5 @@
+#include "test.luap"
 
-#define A!(x, y) =
-    local function x(y)
-        return y .. #x#
-    end
-#end
-
-A!(abc, param)
+print(external_macro!)
 
 
