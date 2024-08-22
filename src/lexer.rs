@@ -15,6 +15,10 @@ pub enum TokenKind {
     Define,
     EndDefine,
     Undef,
+    Ifdef,
+    Ifndef,
+    Endif,
+    Else,
     Stringify,
     Paste,
 }
@@ -48,6 +52,18 @@ fn get_lex_patterns() -> Patterns {
     ), (
         new_pattern(r"(#include)"),
         TokenKind::Include,
+    ), (
+        new_pattern(r"(#ifndef)"),
+        TokenKind::Ifndef,
+    ), (
+        new_pattern(r"(#ifdef)"),
+        TokenKind::Ifdef,
+    ), (
+        new_pattern(r"(#endif)"),
+        TokenKind::Endif,
+    ), (
+        new_pattern(r"(#else)"),
+        TokenKind::Else,
     ), (
         new_pattern(r"(#define)"),
         TokenKind::Define,
@@ -117,6 +133,7 @@ fn apply_patterns(
 }
 
 pub fn lex(mut input: String) -> Option<Tokens> {
+    input = Regex::new("--.*").unwrap().replace_all(&input, "").to_string();
     let patterns = get_lex_patterns();
     let mut tokens = vec![];
     input = input.trim_start().to_string();

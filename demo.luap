@@ -1,5 +1,7 @@
+print(i)
 #include "test.luap"
-
-print(external_macro!)
+#include "test.luap"
+#include "test.luap"
+#include "test.luap"
 
 
