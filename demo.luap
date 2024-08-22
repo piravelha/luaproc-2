@@ -1,6 +1,10 @@
 
-#define math!(x) =
-    (x + x) / (x - x)
+#define A!(x, y) =
+    local function x(y)
+        return y .. #x#
+    end
 #end
 
-print(math!(10))
+A!(abc, param)
+
+

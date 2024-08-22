@@ -13,6 +13,8 @@ pub enum TokenKind {
     Macro,
     Define,
     EndDefine,
+    Undef,
+    Stringify,
 }
 
 #[derive(Debug, Clone)]
@@ -48,13 +50,19 @@ fn get_lex_patterns() -> Patterns {
         new_pattern(r"(#end)"),
         TokenKind::EndDefine,
     ), (
+        new_pattern(r"(#undef)"),
+        TokenKind::Undef,
+    ), (
         new_pattern(r"(nil)"),
         TokenKind::Nil,
+    ), (
+        new_pattern(r"(#[a-zA-Z_]\w*#)"),
+        TokenKind::Stringify,
     ), (
         new_pattern(r"([a-zA-Z_]\w*)"),
         TokenKind::Name,
     ), (
-        new_pattern(r"([+\-*/!@#$%&|:<>=?~^]+)"),
+        new_pattern(r"([+\-*/!@#$%&|:<>=?~^.]+)"),
         TokenKind::Special,
     ), (
         new_pattern(r"[,;]"),

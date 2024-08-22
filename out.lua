@@ -1,1 +1,3 @@
-print((10 + 10) / (10 - 10))
+local function abc(param)
+	return param .. "abc"
+end
