@@ -17,6 +17,7 @@ struct ValueMacro {
 struct FuncMacro {
   name: String,
   params: Vec<String>,
+  vararg: bool,
   tokens: lexer::Tokens,
 }
 
@@ -73,7 +74,7 @@ fn process_value_macro(
 fn parse_func_params_rest(
   iter: &mut Peekable<IntoIter<lexer::Token>>,
   args: &mut Vec<String>,
-) -> Option<()> {
+) -> Option<bool> {
   while let Some(next_token) = iter.peek() {
     if next_token.value.as_str() == ")" {
       iter.next();
@@ -84,25 +85,41 @@ fn parse_func_params_rest(
     }
     iter.next()?;
     if let Some(name_token) = iter.next() {
-      if name_token.kind != lexer::TokenKind::Name {
+      if name_token.kind == lexer::TokenKind::Vararg {
+        return Some(true);
+      } else if name_token.kind != lexer::TokenKind::Name {
         return None;
       }
       args.push(name_token.value);
     }
   }
-  Some(())
+  Some(false)
 }
 
 fn parse_func_params(
   iter: &mut Peekable<IntoIter<lexer::Token>>,
-) -> Option<Vec<String>> {
+) -> Option<(Vec<String>, bool)> {
   let mut args = vec![];
-  let name = iter
-    .next()
-    .filter(|name| name.kind == lexer::TokenKind::Name)?;
-  args.push(name.clone().value);
-  parse_func_params_rest(iter, &mut args)?;
-  Some(args)
+  let vararg = iter
+    .peek()
+    .filter(|var| var.kind == lexer::TokenKind::Vararg);
+  match vararg {
+    None => {
+      let name = iter
+        .next()
+        .filter(|name| name.kind == lexer::TokenKind::Name)?;
+      args.push(name.clone().value);
+      let vararg = parse_func_params_rest(iter, &mut args)?;
+      Some((args, vararg))
+    }
+    Some(_) => {
+      iter.next();
+      iter.next().filter(|paren|
+        paren.value.as_str() == ")"
+      )?;
+      Some((args, true))
+    },
+  }
 }
 
 fn process_func_macro(
@@ -110,7 +127,7 @@ fn process_func_macro(
   func_macros: &mut Vec<FuncMacro>,
   name: lexer::Token,
 ) -> Option<()> {
-  let params = parse_func_params(iter)?;
+  let (params, vararg) = parse_func_params(iter)?;
   let eq_or_end = iter.next()?;
   match eq_or_end.value.as_str() {
     "=" => {}
@@ -118,6 +135,7 @@ fn process_func_macro(
       func_macros.push(FuncMacro {
         name: name.value,
         params: params,
+        vararg: vararg,
         tokens: vec![],
       });
       return Some(());
@@ -136,6 +154,7 @@ fn process_func_macro(
   func_macros.push(FuncMacro {
     name: name.value,
     params: params,
+    vararg: vararg,
     tokens: value.collect(),
   });
   Some(())
@@ -329,8 +348,33 @@ fn process_tokens(
           })
           .collect::<Vec<_>>();
         let mut body = func_macro.tokens;
+        let mut rest = args.clone();
         for (arg, param) in args.into_iter().zip(&params) {
           body = replace_tokens(body, param.clone(), arg);
+          rest.remove(0);
+        }
+        let rest = rest
+          .into_iter()
+          .flat_map(|arg| {
+            [
+              arg,
+              vec![lexer::Token {
+                kind: lexer::TokenKind::Delimiter,
+                value: ",".to_string(),
+              }],
+            ]
+            .concat()
+          })
+          .collect();
+        if func_macro.vararg {
+          body = replace_tokens(
+            body,
+            lexer::Token {
+              kind: lexer::TokenKind::Vararg,
+              value: "#...".to_string(),
+            },
+            rest,
+          )
         }
         let result =
           process_tokens(body, value_macros, func_macros)?;
@@ -521,7 +565,9 @@ fn process_file(path: String) -> Result<lexer::Tokens, String> {
   Ok(tokens)
 }
 
-fn strip_trailing_commas(tokens: lexer::Tokens) -> lexer::Tokens {
+fn strip_trailing_commas(
+  tokens: lexer::Tokens,
+) -> lexer::Tokens {
   let mut new_tokens = vec![];
   let mut iter = tokens.into_iter();
   while let Some(token) = iter.next() {
@@ -530,10 +576,7 @@ fn strip_trailing_commas(tokens: lexer::Tokens) -> lexer::Tokens {
         if next_token.value.as_str() == ")" {
           new_tokens.push(next_token);
         } else {
-          new_tokens.extend(vec![
-            token,
-            next_token,
-          ]);
+          new_tokens.extend(vec![token, next_token]);
         }
       } else {
         new_tokens.push(token);

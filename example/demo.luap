@@ -1,64 +1,6 @@
-local iota_var = 0
-function iota_impl()
-  iota_var = iota_var + 1
-  return iota_var
-end
 
-#define print!(value) =
-  print("> " .. value)
+#define vararg!(#...) =
+  print("LOG:", #...)
 #end
 
-#define IOTA! =
-  iota_impl()
-#end
-
-#define banner!(text) =
-  print()
-  print("################ " text " #################")
-  print()
-#end
-
-#define list_of_names! =
-  X!(Alonzo_Church)
-  X!(Haskell_Curry)
-  X!(Alan_Turing)
-#end
-
-#define X!(name) =
-  name = IOTA!,
-#end
-local names = { list_of_names! }
-#undef X!
-
-banner!("Example 1")
-
-for k, v in pairs(names) do
-  print!(k .. "\t = " .. v)
-end
-
-#define X!(name) =
-  print!(#name#)
-#end
-
-banner!("Example 2")
-
-list_of_names!
-
-#undef X!
-
-#define X!(name) =
-  function print_##name()
-    print!(#name#)
-  end
-#end
-
-list_of_names!
-
-#undef X!
-
-banner!("Example 3")
-
-print_Alonzo_Church()
-print_Haskell_Curry()
-print_Alan_Turing()
-print("\n")
+vararg!(1, 2, 3)
