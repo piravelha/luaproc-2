@@ -1,4 +1,16 @@
-#define a!(b, c) = #b# .. ", " .. #c# .. "!" #end
 
-print(a!(Hello, World))
+#define debug! #end
+--#undef debug!
 
+#ifdef debug!
+  #define log!(msg) = print(
+    os.date("%Y-%m-%d %H:%M:%S")
+    .. " [DEBUG] "
+    .. msg
+  ) #end
+#else
+  #define log!(msg) #end
+#endif
+
+log!("Printing 1")
+print(1)
