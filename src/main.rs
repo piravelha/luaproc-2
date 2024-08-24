@@ -86,6 +86,7 @@ fn parse_func_params_rest(
     iter.next()?;
     if let Some(name_token) = iter.next() {
       if name_token.kind == lexer::TokenKind::Vararg {
+        iter.next()?;
         return Some(true);
       } else if name_token.kind != lexer::TokenKind::Name {
         return None;
@@ -353,18 +354,31 @@ fn process_tokens(
           body = replace_tokens(body, param.clone(), arg);
           rest.remove(0);
         }
+        let stringified = rest
+          .clone()
+          .into_iter()
+          .flat_map(|arg| vec![
+            lexer::Token {
+              kind: lexer::TokenKind::String,
+              value: format!(
+                "{:?}",
+                render_tokens(arg),
+              ),
+            },
+            lexer::Token {
+              kind: lexer::TokenKind::Delimiter,
+              value: ",".to_string(),
+            }
+          ]).collect::<Vec<_>>();
         let rest = rest
           .into_iter()
-          .flat_map(|arg| {
-            [
-              arg,
-              vec![lexer::Token {
-                kind: lexer::TokenKind::Delimiter,
-                value: ",".to_string(),
-              }],
-            ]
-            .concat()
-          })
+          .flat_map(|arg| [
+            arg,
+            vec![lexer::Token {
+              kind: lexer::TokenKind::Delimiter,
+              value: ",".to_string(),
+            }],
+          ].concat())
           .collect();
         if func_macro.vararg {
           body = replace_tokens(
@@ -374,7 +388,15 @@ fn process_tokens(
               value: "#...".to_string(),
             },
             rest,
-          )
+          );
+          body = replace_tokens(
+            body,
+            lexer::Token {
+              kind: lexer::TokenKind::StringifyVararg,
+              value: "#...#".to_string(),
+            },
+            stringified,
+          );
         }
         let result =
           process_tokens(body, value_macros, func_macros)?;

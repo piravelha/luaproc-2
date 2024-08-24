@@ -1,0 +1,38 @@
+
+#define instanceof!(value, typ) =
+  (type(value) == #typ#)
+#end
+
+#define check_type!(value, type) =
+  if not instanceof!(value, type) then
+    return nil
+  end
+#end
+
+#define bind!(var, value) =
+  local var = value
+  if var == nil then
+    return nil
+  end
+#end
+
+function do_something(x)
+  check_type!(x, number)
+  return x * x
+end
+
+function do_something_else(x)
+  check_type!(x, string)
+  return x .. "!"
+end
+
+function main(input)
+  bind!(x, do_something(input))
+  local s = tostring(x)
+  bind!(y, do_something_else(s))
+  return y
+end
+
+print(main("a"))
+
+

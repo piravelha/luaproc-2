@@ -1,0 +1,19 @@
+
+#define printf!(fmt, #...) =
+  print((fmt):format(#...))
+#end
+
+local thing = "pre processors"
+printf!("I love %s!", thing)
+
+#define block!(stmts) =
+  (function() stmts)()
+#end
+
+local x = block!(
+  local x = 5
+  local y = x + 1
+  return y - 1
+end)
+
+printf!("x is: %d", x)
