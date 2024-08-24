@@ -12,6 +12,6 @@ cargo build --release
 
 ## Usage
 
-```sh
+```bh
 ./luaproc <input-file> <output-file>
 ```

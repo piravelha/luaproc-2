@@ -1,7 +1,3 @@
-
-#define debug! #end
---#undef debug!
-
 #ifdef debug!
   #define log!(msg) = print(
     os.date("%Y-%m-%d %H:%M:%S")
@@ -12,5 +8,4 @@
   #define log!(msg) #end
 #endif
 
-log!("Printing 1")
-print(1)
+

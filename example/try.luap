@@ -1,0 +1,19 @@
+
+#define try! =
+  local _ok_, _err_ = pcall(function()
+#end
+
+#define catch!(e) =
+  end)
+  if not _ok_ then
+    local e = _err_
+#end
+
+try!
+  error("Oh no!")
+catch!(e)
+  print(e)
+  print("Oh, its fine.")
+end
+
+

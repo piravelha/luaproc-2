@@ -1,2 +1,8 @@
-print(os.date("%Y-%m-%d %H:%M:%S") .. " [DEBUG] " .. "Printing 1")
-print(1)
+local ok, err = pcall(function()
+	error("Oh no!")
+end)
+if not ok then
+	local e = err
+	print(e)
+	print("Oh, its fine.")
+end

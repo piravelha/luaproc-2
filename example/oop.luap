@@ -1,0 +1,36 @@
+#define class!(name) =
+  name = {}
+  name.__index = name
+  function name.new(...)
+    local self = setmetatable({}, name)
+    if self.init then
+      self:init(...)
+    end
+    return self
+  end
+#end
+
+#define method!(class, name, params) =
+  function class:name params
+#end
+
+class!(Animal)
+
+method!(Animal; init, ())
+  self.name = "Unnamed"
+end
+
+method!(Animal; set_name, (name))
+  self.name = name
+end
+
+method!(Animal; speak, ())
+  print(self.name .. " makes a sound")
+end
+
+local cat = Animal.new()
+cat:set_name("Whiskers")
+cat:speak()
+--> Whiskers makes a sound
+
+

@@ -1,7 +1,9 @@
 use std::env;
 use std::fs::File;
 use std::io::{Read, Write};
+use std::process::exit;
 use std::process::Command;
+use std::process::Stdio;
 use std::{iter::Peekable, vec::IntoIter};
 mod lexer;
 
@@ -111,7 +113,7 @@ fn process_func_macro(
   let params = parse_func_params(iter)?;
   let eq_or_end = iter.next()?;
   match eq_or_end.value.as_str() {
-    "=" => {},
+    "=" => {}
     "#end" => {
       func_macros.push(FuncMacro {
         name: name.value,
@@ -119,7 +121,7 @@ fn process_func_macro(
         tokens: vec![],
       });
       return Some(());
-    },
+    }
     _ => return None,
   }
   let value = iter
@@ -483,6 +485,29 @@ fn add_header_guard(
   new_tokens
 }
 
+fn add_flags(
+  flags: Vec<String>,
+  tokens: lexer::Tokens,
+) -> lexer::Tokens {
+  let flags = flags.into_iter().flat_map(|flag| {
+    vec![
+      lexer::Token {
+        kind: lexer::TokenKind::Define,
+        value: "#define".to_string(),
+      },
+      lexer::Token {
+        kind: lexer::TokenKind::Macro,
+        value: (flag + "!").to_string(),
+      },
+      lexer::Token {
+        kind: lexer::TokenKind::EndDefine,
+        value: "#end".to_string(),
+      },
+    ]
+  });
+  flags.into_iter().chain(tokens).collect()
+}
+
 fn process_file(path: String) -> Result<lexer::Tokens, String> {
   let mut input_file =
     File::open(path.clone()).map_err(|e| format!("{}", e))?;
@@ -496,14 +521,109 @@ fn process_file(path: String) -> Result<lexer::Tokens, String> {
   Ok(tokens)
 }
 
+fn strip_trailing_commas(tokens: lexer::Tokens) -> lexer::Tokens {
+  let mut new_tokens = vec![];
+  let mut iter = tokens.into_iter();
+  while let Some(token) = iter.next() {
+    if token.value.as_str() == "," {
+      if let Some(next_token) = iter.next() {
+        if next_token.value.as_str() == ")" {
+          new_tokens.push(next_token);
+        } else {
+          new_tokens.extend(vec![
+            token,
+            next_token,
+          ]);
+        }
+      } else {
+        new_tokens.push(token);
+      }
+    } else {
+      new_tokens.push(token);
+    }
+  }
+  new_tokens
+}
+
+enum CliMode {
+  Com,
+  Run,
+}
+
+struct CliOptions {
+  input_path: String,
+  output_path: String,
+  flags: Vec<String>,
+  mode: CliMode,
+}
+
+fn print_usage() {
+  println!(
+    "Usage: luaproc <mode> <file> <options> [--flags=*,]"
+  );
+  println!("    <mode>      run. Runs the file");
+  println!("                com. Compiles the file");
+  println!("");
+  println!("    <file>      Path to the file");
+  println!("");
+  println!("    --flags     Comma separated list of flags");
+  println!(
+    "                that are treated as empty definitions"
+  );
+  exit(1);
+}
+
+fn process_cli_args(args: &mut Vec<String>) -> CliOptions {
+  if args.len() <= 0 {
+    println!("Error: expected mode");
+    print_usage();
+  }
+  let mut input_path = "".to_string();
+  let mut output_path = "out.lua".to_string();
+  let mut flags = vec![];
+  let mode = match args.remove(0).as_str() {
+    "com" => CliMode::Com,
+    "run" => CliMode::Run,
+    mode => {
+      println!("Error: Invalid mode: {}", mode);
+      print_usage();
+      exit(1);
+    }
+  };
+  while args.len() > 0 {
+    if args[0].starts_with("--flags=") {
+      flags = (&args[0]["--flags=".len()..])
+        .split(',')
+        .map(|flag| flag.to_string())
+        .collect();
+      args.remove(0);
+    } else if args[0].as_str() == "-o" {
+      args.remove(0);
+      output_path = args.remove(0);
+    } else {
+      input_path = (&args[0].clone()).to_string();
+      args.remove(0);
+    }
+  }
+  if input_path.len() == 0 {
+    println!("Error: Expected input file path");
+    print_usage();
+  }
+  CliOptions {
+    input_path,
+    output_path,
+    flags,
+    mode,
+  }
+}
+
 fn main() {
-  let args: Vec<String> = env::args().collect();
-  let input_path = args
-    .get(1)
-    .expect("Usage: luaproc <input-file> <output-file>");
-  let output_path = args
-    .get(2)
-    .expect("Usage: luaproc <input-file> <output-file>");
+  let mut args: Vec<String> = env::args().collect();
+  args.remove(0);
+  let opts = process_cli_args(&mut args);
+  let input_path = opts.input_path;
+  let output_path = opts.output_path;
+  let flags = opts.flags;
   let processed = match process_file(input_path.to_string()) {
     Err(e) => {
       eprintln!("{}", e);
@@ -511,17 +631,33 @@ fn main() {
     }
     Ok(p) => p,
   };
+  let processed = add_flags(flags, processed);
   let processed =
     process_tokens(processed, &mut vec![], &mut vec![])
       .expect("Processing failed");
   let processed = apply_pastes(processed);
   let processed = concat_string_lits(processed);
+  let processed = strip_trailing_commas(processed);
   let string = render_tokens(processed);
-  let mut output_file =
-    File::create(output_path).expect("Could not create file");
+  let mut output_file = File::create(output_path.clone())
+    .expect("Could not create file");
   match output_file.write_all(string.as_bytes()) {
     Err(e) => eprintln!("Error: {}", e),
     Ok(_) => {}
   };
-  let _ = Command::new("stylua").arg(output_path).output();
+  let _ =
+    Command::new("stylua").arg(output_path.clone()).output();
+  match opts.mode {
+    CliMode::Com => {}
+    CliMode::Run => {
+      let _ = Command::new("luajit")
+        .arg(output_path.clone())
+        .arg("&&")
+        .arg("rm")
+        .arg(output_path)
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .output();
+    }
+  }
 }
