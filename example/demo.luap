@@ -1,6 +1,6 @@
 
-#define vararg!(#...) =
-  print("LOG:", #...)
+#define idk!(name) =
+  #name# "!"
 #end
 
-vararg!(1, 2, 3)
+print(idk!(Ian + 1))

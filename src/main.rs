@@ -514,7 +514,7 @@ fn render_tokens(tokens: lexer::Tokens) -> String {
     .into_iter()
     .map(|token| token.value)
     .collect::<Vec<_>>()
-    .join("\n")
+    .join(" ")
 }
 
 fn add_header_guard(
