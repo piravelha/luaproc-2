@@ -1,5 +1,5 @@
 
-#define idk!(name) =
+#define idk!(name)
   #name# "!"
 #end
 

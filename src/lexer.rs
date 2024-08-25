@@ -26,9 +26,17 @@ pub enum TokenKind {
 }
 
 #[derive(Debug, Clone)]
+pub struct Location {
+  pub file: String,
+  pub line: i32,
+  pub column: i32,
+}
+
+#[derive(Debug, Clone)]
 pub struct Token {
   pub kind: TokenKind,
   pub value: String,
+  pub location: Location,
 }
 
 pub type Patterns = Vec<(Regex, TokenKind)>;
@@ -67,32 +75,48 @@ fn get_lex_patterns() -> Patterns {
   ]
 }
 
+fn update_location(
+  input: &str,
+  location: &mut Location,
+) {
+  for char in input.chars() {
+    if char == '\n' {
+      location.line += 1;
+      location.column = 1;
+    } else {
+      location.column += 1;
+    }
+  }
+}
+
 fn apply_pattern(
   pattern: Regex,
   kind: TokenKind,
-  tokens: &mut Tokens,
   input: &str,
-) -> Option<String> {
+  location: &mut Location,
+) -> Option<(Token, String)> {
   let capture = pattern.captures(input)?;
   let full = &capture[0];
-  tokens.push(Token {
+  let token = Token {
     kind: kind.clone(),
     value: full.to_string(),
-  });
-  return Some(input[full.len()..].to_string());
+    location: location.clone(),
+  };
+  update_location(&input[..full.len()], location);
+  return Some((token, input[full.len()..].to_string()));
 }
 
 fn apply_patterns(
   patterns: &Patterns,
-  tokens: &mut Tokens,
   input: &str,
-) -> Option<String> {
+  location: &mut Location,
+) -> Option<(Token, String)> {
   for (pattern, kind) in patterns {
     let result = apply_pattern(
       pattern.clone(),
       kind.clone(),
-      tokens,
       input,
+      location,
     );
     match result {
       None => continue,
@@ -102,18 +126,32 @@ fn apply_patterns(
   None
 }
 
-pub fn lex(mut input: String) -> Option<Tokens> {
+pub fn lex(file: &str, mut input: String) -> Option<Tokens> {
   input = Regex::new("--.*")
     .unwrap()
     .replace_all(&input, "")
     .to_string();
   let patterns = get_lex_patterns();
   let mut tokens = vec![];
-  input = input.trim_start().to_string();
+
+  let mut location = Location {
+    file: file.to_string(),
+    line: 1,
+    column: 1
+  };
 
   while !input.is_empty() {
-    input = apply_patterns(&patterns, &mut tokens, &input)?;
+    update_location(
+      &input[..input.len() - input.trim_start().len()],
+      &mut location
+    );
     input = input.trim_start().to_string();
+    if input.is_empty() {
+      break;
+    }
+    let (token, new_input) = apply_patterns(&patterns, &input, &mut location)?;
+    input = new_input;
+    tokens.push(token);
   }
 
   Some(tokens)
