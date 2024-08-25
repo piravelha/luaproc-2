@@ -1,0 +1,29 @@
+
+#define clock! = os.clock() #end
+
+#define profile_begin! =
+  local _profile_ = clock!
+  do
+#end
+
+#define profile_end! =
+  end
+  print(
+    " [PROFILE]: "
+    .. (clock! - _profile_)
+  )
+#end
+
+#define sleep!(delay) =
+  local _start_ = clock!
+  repeat until clock! - _start_ > delay
+#end
+
+-- Usage:
+
+profile_begin!
+  print("Doing something expensive...")
+  sleep!(1)
+profile_end!
+
+

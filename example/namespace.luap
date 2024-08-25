@@ -1,0 +1,22 @@
+
+#define namespace!(name, #...) =
+  local name = setmetatable({ #... }, {
+    __tostring = function(self)
+      return "<namespace: " #name# ">"
+    end,
+  })
+#end
+
+#define member!(#...) =
+  = function (#...)
+#end
+
+namespace! { Math is
+  add member!(x, y)
+    return x + y
+  end
+}
+
+print(Math, Math.add(1, 2))
+
+

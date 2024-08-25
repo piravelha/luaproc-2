@@ -23,6 +23,7 @@ pub enum TokenKind {
   Paste,
   Vararg,
   StringifyVararg,
+  Line,
 }
 
 #[derive(Debug, Clone)]
@@ -53,6 +54,7 @@ fn get_lex_patterns() -> Patterns {
     (new_pattern(r"(true|false)"), TokenKind::Boolean),
     (new_pattern(r"([a-zA-Z_]\w*!)"), TokenKind::Macro),
     (new_pattern(r"(#include)"), TokenKind::Include),
+    (new_pattern(r"(#line)"), TokenKind::Line),
     (new_pattern(r"(#ifndef)"), TokenKind::Ifndef),
     (new_pattern(r"(#ifdef)"), TokenKind::Ifdef),
     (new_pattern(r"(#endif)"), TokenKind::Endif),
@@ -63,6 +65,7 @@ fn get_lex_patterns() -> Patterns {
     (new_pattern(r"(nil)"), TokenKind::Nil),
     (new_pattern(r"(#[a-zA-Z_]\w*#)"), TokenKind::Stringify),
     (new_pattern(r"##"), TokenKind::Paste),
+    (new_pattern(r"(,|;|:=|->|=>|is)"), TokenKind::Delimiter),
     (new_pattern(r"([a-zA-Z_]\w*)"), TokenKind::Name),
     (new_pattern(r"#\.\.\.#"), TokenKind::StringifyVararg),
     (new_pattern(r"#\.\.\."), TokenKind::Vararg),
@@ -70,7 +73,6 @@ fn get_lex_patterns() -> Patterns {
       new_pattern(r"([+\-*/!@#$%&|:<>=?~^.]+)"),
       TokenKind::Special,
     ),
-    (new_pattern(r"[,;]"), TokenKind::Delimiter),
     (new_pattern(r"[()\[\]{}]"), TokenKind::Brace),
   ]
 }

@@ -1,18 +1,18 @@
 
 #define enum!(name, #...) =
-  local name = (function()
-    local o = {}
+  local name = {}
+  do
     local fields = { #...# }
     for i, field in pairs(fields) do
-      o[i] = field
-      o[field] = i
+      name[i] = field
+      name[field] = i
     end
-    return o
-  end)()
+  end
 #end
 
 enum!(Color; red, green, blue)
 
 print(Color.red, Color.green, Color.blue)
+print(Color[1], Color[2], Color[3])
 
 

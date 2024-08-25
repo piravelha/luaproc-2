@@ -1,0 +1,26 @@
+
+#define switch!(var) =
+  local _switch_ = var
+  if false then
+#end
+
+#define case!(value) =
+  elseif _switch_ == value then
+#end
+
+#define default! = else #end
+
+local fruit = "orange"
+
+switch!(fruit)
+case!("apple")
+  print("fruit is apple")
+case!("orange")
+  print("fruit is orange")
+case!("banana")
+  print("fruit is banana")
+default!
+  print("fruit is unknown")
+end
+
+

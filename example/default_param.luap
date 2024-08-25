@@ -1,0 +1,16 @@
+
+#define default_param!(var, value) =
+  if var == nil then var = value end
+#end
+
+function add(x, y)
+  default_param!(x, 0)
+  default_param!(y, 0)
+  return x + y
+end
+
+print(add(1, 2))
+print(add(1))
+print(add(nil, 2))
+print(add())
+

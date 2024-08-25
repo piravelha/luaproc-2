@@ -1,0 +1,27 @@
+
+#define unpack!(tbl, #...) =
+  local #...
+  do
+    local o = {}
+    local fields = { #...# }
+    for k, v in pairs(tbl) do
+      for i, k2 in pairs(fields) do
+        if k == k2 then
+          o[i] = v
+        end
+      end
+    end
+    #... = unpack(o)
+  end
+#end
+
+local person = {
+  name = "Ian",
+  age = 15,
+}
+
+unpack! { person => name, age }
+
+print(name, age)
+
+

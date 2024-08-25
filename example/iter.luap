@@ -1,0 +1,18 @@
+
+#define count!(x) =
+  for it = 1, x do
+#end
+
+count!(3)
+  print(it)
+end
+
+#define range!(min, max) =
+  for it = min, max do
+#end
+
+range!(4, 6)
+  print(it)
+end
+
+
