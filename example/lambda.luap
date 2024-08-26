@@ -1,0 +1,15 @@
+
+#define lambda!(params, #...) =
+  function params
+    return #...
+  end
+#end
+
+local add = lambda! {
+  (x) => lambda! {
+    (y) => x + y
+  }
+}
+print(add(1)(2))
+
+

@@ -58,23 +58,33 @@ fn replace_tokens(
   new_tokens
 }
 
+fn get_macro_body(
+  iter: &mut Peekable<IntoIter<lexer::Token>>,
+) -> lexer::Tokens {
+  let mut tokens = vec![];
+  while let Some(token) = iter.next() {
+    if token.kind == lexer::TokenKind::Define {
+      let new_tokens = get_macro_body(iter);
+      tokens.push(token);
+      tokens.extend(new_tokens);
+    } else if token.kind == lexer::TokenKind::EndDefine {
+      return tokens
+    } else {
+      tokens.push(token);
+    }
+  }
+  tokens
+}
+
 fn process_value_macro(
   iter: &mut Peekable<IntoIter<lexer::Token>>,
   value_macros: &mut Vec<ValueMacro>,
   name: lexer::Token,
 ) -> Option<()> {
-  let value = iter
-    .clone()
-    .take_while(|tok| tok.kind != lexer::TokenKind::EndDefine);
-  for _ in 0..value.clone().collect::<Vec<_>>().len() {
-    iter.next();
-  }
-  iter
-    .next()
-    .filter(|end| end.kind == lexer::TokenKind::EndDefine)?;
+  let value = get_macro_body(iter);
   value_macros.push(ValueMacro {
     name: name.value,
-    tokens: value.collect(),
+    tokens: value,
   });
   Some(())
 }
@@ -151,20 +161,12 @@ fn process_func_macro(
     }
     _ => return None,
   }
-  let value = iter
-    .clone()
-    .take_while(|tok| tok.kind != lexer::TokenKind::EndDefine);
-  for _ in 0..value.clone().collect::<Vec<_>>().len() {
-    iter.next();
-  }
-  iter
-    .next()
-    .filter(|end| end.kind == lexer::TokenKind::EndDefine)?;
+  let value = get_macro_body(iter);
   func_macros.push(FuncMacro {
     name: name.value,
     params: params,
     vararg: vararg,
-    tokens: value.collect(),
+    tokens: value,
   });
   Some(())
 }
@@ -237,6 +239,32 @@ fn skip_nested_ifdefs(
     }
   }
   body.extend(inner_body);
+}
+
+fn apply_bang_pastes(tokens: lexer::Tokens) -> lexer::Tokens {
+  let mut iter = tokens.into_iter().peekable();
+  let mut new_tokens = vec![];
+  while let Some(token) = iter.next() {
+    if token.kind == lexer::TokenKind::Name {
+      if let Some(next_token) = iter.peek() {
+        if next_token.kind == lexer::TokenKind::Bang {
+          iter.next();
+          new_tokens.push(lexer::Token {
+            kind: lexer::TokenKind::Macro,
+            value: (token.value + "!").to_string(),
+            location: token.location,
+          });
+        } else {
+          new_tokens.push(token);
+        }
+      } else {
+        new_tokens.push(token);
+      }
+    } else {
+      new_tokens.push(token);
+    }
+  }
+  new_tokens
 }
 
 fn join_by_commas(tokens: Vec<lexer::Tokens>) -> lexer::Tokens {
@@ -362,8 +390,10 @@ fn process_tokens(
         .into_iter()
         .find(|val_macro| val_macro.name == token.value);
       if let Some(value_macro) = value_macro_opt {
+        let tokens = value_macro.tokens;
+        let tokens = apply_bang_pastes(tokens);
         let result = process_tokens(
-          value_macro.tokens,
+          tokens,
           value_macros,
           func_macros,
         )?;
@@ -394,6 +424,7 @@ fn process_tokens(
           body = replace_tokens(body, param.clone(), arg);
           rest.remove(0);
         }
+        let mut body = apply_bang_pastes(body);
         let stringified = rest
           .clone()
           .into_iter()
@@ -439,7 +470,7 @@ fn process_tokens(
         continue;
       }
       return Err(
-        "Attempting to call non-existent macro".to_string(),
+        format!("{:?}: Attempting to call non-existent macro: `{}`", token.location, token.value),
       );
     } else if token.kind == lexer::TokenKind::Undef {
       let name = iter

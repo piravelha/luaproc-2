@@ -1,0 +1,23 @@
+
+#define readonly!(#...) =
+  (function()
+    local _vals_ = { #... }
+    return setmetatable({}, {
+      __index = function(_, key)
+        return _vals_[key]
+      end,
+      __newindex = function()
+        error("Attempting to modify "
+        .. "read-only table")
+      end,
+      __metatable = false,
+    })
+  end)()
+#end
+
+local point = readonly! {
+  x = 3,
+  y = 4,
+}
+
+

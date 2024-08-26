@@ -24,6 +24,7 @@ pub enum TokenKind {
   Vararg,
   StringifyVararg,
   Line,
+  Bang,
 }
 
 #[derive(Debug, Clone)]
@@ -64,6 +65,7 @@ fn get_lex_patterns() -> Patterns {
     (new_pattern(r"(#undef)"), TokenKind::Undef),
     (new_pattern(r"(nil)"), TokenKind::Nil),
     (new_pattern(r"(#[a-zA-Z_]\w*#)"), TokenKind::Stringify),
+    (new_pattern(r"##!"), TokenKind::Bang),
     (new_pattern(r"##"), TokenKind::Paste),
     (new_pattern(r"(,|;|:=|->|=>|is)"), TokenKind::Delimiter),
     (new_pattern(r"([a-zA-Z_]\w*)"), TokenKind::Name),

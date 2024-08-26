@@ -1,0 +1,15 @@
+
+#define fruits!(transform) =
+  transform##!(Apple)
+  transform##!(Orange)
+  transform##!(Banana)
+#end
+
+#define fruit_var!(fruit) =
+  local fruit = #fruit#
+#end
+
+fruits!(fruit_var)
+
+print(Apple, Orange, Banana)
+
