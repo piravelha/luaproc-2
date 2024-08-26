@@ -1,0 +1,12 @@
+
+#define defer!(#...) =
+  setmetatable({}, {
+    __gc = function()
+      #...
+    end,
+  });
+#end
+
+print("One!")
+defer! { print("Two!") }
+print("Three!")

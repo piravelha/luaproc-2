@@ -67,7 +67,7 @@ fn get_lex_patterns() -> Patterns {
     (new_pattern(r"(#[a-zA-Z_]\w*#)"), TokenKind::Stringify),
     (new_pattern(r"##!"), TokenKind::Bang),
     (new_pattern(r"##"), TokenKind::Paste),
-    (new_pattern(r"(,|;|:=|->|=>|is)"), TokenKind::Delimiter),
+    (new_pattern(r"(,|;|:=|->|=>|\bis\b)"), TokenKind::Delimiter),
     (new_pattern(r"([a-zA-Z_]\w*)"), TokenKind::Name),
     (new_pattern(r"#\.\.\.#"), TokenKind::StringifyVararg),
     (new_pattern(r"#\.\.\."), TokenKind::Vararg),
@@ -116,16 +116,18 @@ fn apply_patterns(
   location: &mut Location,
 ) -> Option<(Token, String)> {
   for (pattern, kind) in patterns {
-    let result = apply_pattern(
-      pattern.clone(),
-      kind.clone(),
-      input,
-      location,
-    );
-    match result {
+    let capture = match pattern.captures(input) {
       None => continue,
-      some @ Some(_) => return some,
-    }
+      Some(capt) => capt,
+    };
+    let full = &capture[0];
+    let token = Token {
+      kind: kind.clone(),
+      value: full.to_string(),
+      location: location.clone(),
+    };
+    update_location(&input[..full.len()], location);
+    return Some((token, input[full.len()..].to_string()));
   }
   None
 }

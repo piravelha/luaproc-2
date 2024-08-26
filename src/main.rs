@@ -424,6 +424,10 @@ fn process_tokens(
           body = replace_tokens(body, param.clone(), arg);
           rest.remove(0);
         }
+        let rest = rest
+          .into_iter()
+          .filter(|toks| !toks.is_empty())
+          .collect::<Vec<_>>();
         let mut body = apply_bang_pastes(body);
         let stringified = rest
           .clone()
@@ -674,8 +678,10 @@ fn process_file(path: String) -> Result<lexer::Tokens, String> {
   input_file
     .read_to_string(&mut input)
     .map_err(|e| format!("{}", e))?;
+  println!("A");
   let tokens =
     lexer::lex(&path, input.clone()).ok_or("Tokenization failed")?;
+  println!("B");
   let tokens = add_header_guard(path, tokens);
   Ok(tokens)
 }
@@ -721,7 +727,7 @@ struct CliOptions {
 
 fn print_usage() {
   println!(
-    "Usage: luaproc <mode> <file> <options> [--flags=*,]"
+    "Usage: luaproc <mode> <file> <options> [--flags=*,] [--format]"
   );
   println!("    <mode>      run. Runs the file");
   println!("                com. Compiles the file");
@@ -762,6 +768,8 @@ fn process_cli_args(args: &mut Vec<String>) -> CliOptions {
     } else if args[0].as_str() == "-o" {
       args.remove(0);
       output_path = args.remove(0);
+    } else if args[0].as_str() == "--format" {
+      args.remove(0);
     } else {
       input_path = (&args[0].clone()).to_string();
       args.remove(0);
@@ -807,18 +815,17 @@ fn main() {
     Err(e) => eprintln!("Error: {}", e),
     Ok(_) => {}
   };
-  let _ =
-    Command::new("stylua").arg(output_path.clone()).output();
+  let _ = Command::new("stylua").arg(output_path.clone()).output();
   match opts.mode {
     CliMode::Com => {}
     CliMode::Run => {
-      let _ = Command::new("luajit")
+      let _ = Command::new("lua5.4")
         .arg(output_path.clone())
-        .arg("&&")
-        .arg("rm")
-        .arg(output_path)
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
+        .output();
+     let _ = Command::new("rm")
+        .arg(output_path)
         .output();
     }
   }

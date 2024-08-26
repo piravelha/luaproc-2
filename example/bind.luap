@@ -1,0 +1,14 @@
+
+#define bind!(var, expr) =
+  (function()
+    var = expr
+    return var
+  end)()
+#end
+
+local x
+if bind!(x := 1 + 2) then
+  print(x)
+end
+
+

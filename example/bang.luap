@@ -13,3 +13,4 @@ fruits!(fruit_var)
 
 print(Apple, Orange, Banana)
 
+
